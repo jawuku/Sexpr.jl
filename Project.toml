@@ -1,0 +1,13 @@
+name = "Sexpr"
+uuid = "b3e1b7d2-5d0f-4c1e-9a4a-6f1c0f9b2e11"
+authors = ["Vishesh Gupta and contributors"]
+version = "0.2.0"
+
+[compat]
+julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

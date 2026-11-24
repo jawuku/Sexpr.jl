@@ -1,0 +1,6 @@
+#!/usr/bin/env julia
+# Command-line entry point. Run with the package environment, e.g.
+#   julia --project=. bin/sjulia file.clj
+using Sexpr
+
+exit(main(ARGS))

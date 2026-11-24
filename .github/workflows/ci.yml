@@ -1,0 +1,31 @@
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Julia ${{ matrix.julia-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version: ['1.6', '1.10', '1.11']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - name: Run tests
+        run: julia --project=. test/runtests.jl
+
+      # every version reads its own base/ tree, and the round trip exits nonzero
+      # on a failure *or* on any file it did not reach, so this is a full-tree
+      # gate on each version rather than a sample
+      - name: Round-trip the base/ corpus
+        run: julia --project=. test/corpus.jl --budget Inf
