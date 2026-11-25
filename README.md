@@ -104,6 +104,14 @@ Errors are reported with line and column and give a nonzero exit code.
 | `x::Int`, `x::Int::Float64` | type annotation / union |
 | `xs...` | splat |
 
+Based literals are unsigned and take their type from their width, exactly as in
+Julia, so a leading `-` is not part of the literal: `-0x01` is the negation of
+`0x01` and evaluates to `0xff` (unsigned negation wraps), and the reader keeps
+it as the call `(- 0x01)`. A decimal literal too wide for `Int` is the builtin
+call Julia makes of it — `9223372036854775808` is `Core.@int128_str`, and
+anything past `Int128` is `Core.@big_str` — with the sign inside the literal
+text, so those nodes round-trip too.
+
 Comments run from `;` to the end of the line. Commas count as whitespace, as in
 Clojure. `#_ form` discards the next form.
 

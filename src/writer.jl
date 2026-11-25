@@ -301,7 +301,7 @@ function sexp(ex::Expr)
     elseif h == :macrocall
         name = macro_name(a[1])
         rest = Any[x for x in a[2:end] if !(x isa LineNumberNode)]
-        if name in ("@int128_str", "@uint128_str") && !isempty(rest) &&
+        if name in ("@int128_str", "@uint128_str", "@big_str") && !isempty(rest) &&
            rest[end] isa AbstractString
             # Julia prints large integer literals through these macros
             return SSym(rest[end])

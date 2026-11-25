@@ -234,6 +234,7 @@ end
 
 # The sign is stripped before matching, except for floats which keep it.
 const RE_INT    = r"^[0-9]+$"
+const RE_SIGNED_INT = r"^-?[0-9]+$"
 const RE_BASED  = r"^0(?:[xX][0-9a-fA-F]+|[bB][01]+|[oO][0-7]+)$"
 const RE_RADIX  = r"^([0-9]+)[rR]([0-9a-zA-Z]+)$"
 const RE_RATIO  = r"^([0-9]+)/([0-9]+)$"
@@ -308,6 +309,38 @@ function based_wide_literal(s::AbstractString)
     name = v > typemax(UInt128) ? "@big_str" : "@uint128_str"
     return Expr(:macrocall, GlobalRef(Core, Symbol(name)),
                 WIDE_LITERAL_FLAGS, String(s))
+end
+
+"""
+    decimal_wide_literal(s) -> Union{Expr,Nothing}
+
+Julia does not keep a decimal literal that does not fit `Int` as a value: it
+stores a call to its `@int128_str` (fits `Int128`) or `@big_str` builtin, with
+the sign inside the literal text (`-9223372036854775809` is one macrocall, not
+a negation). The reader builds the same expression so the node round-trips.
+"""
+function decimal_wide_literal(s::AbstractString)
+    occursin(RE_SIGNED_INT, s) || return nothing
+    v = decimal_int(s)
+    v isa Int && return nothing
+    name = v isa Int128 ? "@int128_str" : "@big_str"
+    return Expr(:macrocall, GlobalRef(Core, Symbol(name)), WIDE_LITERAL_FLAGS,
+                String(s))
+end
+
+"""
+    negated_based_literal(s) -> Union{Expr,Nothing}
+
+`-0x01` is not a literal in Julia: it is the negation of the `UInt8` literal
+`0x01`, and that negation wraps (`-UInt8(1) == 0xff`). Keeping the call makes
+the atom agree with Julia instead of inventing a signed value.
+"""
+function negated_based_literal(s::AbstractString)
+    startswith(s, "-0") && occursin(RE_BASED, s[2:end]) || return nothing
+    body = s[2:end]
+    wide = based_wide_literal(body)
+    wide === nothing || return Expr(:call, :-, wide)
+    return Expr(:call, :-, parse_number(body))
 end
 
 """
@@ -442,8 +475,10 @@ function atom_from_token(tok::Token)
            (!startswith(s, "::") || (length(s) > 2 && all(c -> c == ':', s)))
         return Atom(:keyword, String(s[2:end]), tok.line, tok.col)
     end
-    wide = based_wide_literal(s)
-    wide === nothing || return Atom(:number, wide, tok.line, tok.col)
+    for literal in (negated_based_literal(s), based_wide_literal(s),
+                    decimal_wide_literal(s))
+        literal === nothing || return Atom(:number, literal, tok.line, tok.col)
+    end
     n = parse_number(s)
     n === nothing || return Atom(:number, n, tok.line, tok.col)
     Atom(:symbol, String(s), tok.line, tok.col)

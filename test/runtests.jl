@@ -941,7 +941,20 @@ end
     @test detranspile(Expr(:(=), :a, UInt16(0x01ff))) == "(def a 0x01ff)"
     # the sign belongs to the literal: typemin(Int) is an Int, not an Int128
     @test tr("(def a -9223372036854775808)") == Expr(:(=), :a, typemin(Int64))
-    @test tr("(def a 9223372036854775808)") == Expr(:(=), :a, Int128(1) << 63)
+    # a decimal literal wider than Int is the builtin literal call Julia makes
+    # of it, sign inside the literal, so the node itself round-trips
+    for lit in ("9223372036854775808", "-9223372036854775809",
+                "170141183460469231731687303715884105728")
+        ex = Expr(:(=), :a, Meta.parse(lit))
+        @test detranspile(ex) == "(def a " * lit * ")"
+        @test tr(detranspile(ex)) == ex
+    end
+    # `-0x01` is the negation of an unsigned literal, as in Julia: the parsed
+    # node is a call (its *value* would be the wrapping 0xff)
+    let neg = Expr(:call, :-, UInt8(0x01))
+        @test tr("(def a -0x01)") == Expr(:(=), :a, neg)
+        @test detranspile(Expr(:(=), :a, neg)) == "(def a (- 0x01))"
+    end
     # BigInt keeps its own spelling; `Expr` equality cannot compare a mutable
     # field on 1.13, so compare the rebuilt type and value instead
     let back = tr(detranspile(Expr(:(=), :a, big(12))))
