@@ -8,7 +8,8 @@ the special-form vocabulary and the `sjulia` command-line interface all come
 from it. This port rewrites the reader, printer and CLI for modern Julia and
 adds a number of previously missing forms.
 
-* Works on Julia 1.6 and later (tested on 1.6.7, 1.10.14, 1.12.7 and 1.13.4).
+* Works on Julia 1.6 and later; CI gates the versions that are not
+  end-of-life — 1.10.14 (LTS), 1.12.7 and 1.13.4.
 * No external dependencies — only the standard library.
 * Both directions: s-expression → Julia **and** Julia → s-expression.
 * Source positions in every parse error.
@@ -329,8 +330,9 @@ $ julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
 The test suite covers both directions, round-trips, evaluated semantics, macro
-expansion, symbol escaping and the CLI. It runs green on Julia 1.6.7, 1.10.14,
-1.12.7 and 1.13.4.
+expansion, symbol escaping and the CLI. It runs green on Julia 1.10.14 (LTS),
+1.12.7 and 1.13.4, the versions CI gates; the package still supports 1.6+, but
+those lines are end-of-life upstream and are no longer in the matrix.
 
 ## Credits and license
 
