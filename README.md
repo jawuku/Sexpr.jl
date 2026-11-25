@@ -8,7 +8,8 @@ the special-form vocabulary and the `sjulia` command-line interface all come
 from it. This port rewrites the reader, printer and CLI for modern Julia and
 adds a number of previously missing forms.
 
-* Works on Julia 1.6 and later (tested on 1.6.7, 1.10.9 and 1.11.5).
+* Works on Julia 1.6 and later (CI runs 1.6.7, 1.10.14 and 1.12.7; 1.13.4 is
+  also run, and does not pass yet — see Limitations).
 * No external dependencies — only the standard library.
 * Both directions: s-expression → Julia **and** Julia → s-expression.
 * Source positions in every parse error.
@@ -309,6 +310,10 @@ julia> format(transpile_expr("(defn empty? [xs] xs)"))
   not on arbitrary expressions.
 * Reader macros are limited to the forms listed above; `#(...)`, `@(...)` and
   other dispatch forms are rejected with an error.
+* Unsigned literals do not keep their type: the writer spells `0xff` as
+  `255`, which reads back as an `Int` rather than a `UInt8`. Julia 1.13 compares
+  `Expr` fields by type and so fails the round trip for them; earlier versions
+  compare only values and hide it.
 * Julia's printer (`Base.show_unquoted`) is used for output, so indentation is
   Julia's four-space style rather than Clojure's.
 
@@ -319,8 +324,10 @@ $ julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
 The test suite covers both directions, round-trips, evaluated semantics, macro
-expansion, symbol escaping and the CLI. It runs green on Julia 1.6.7, 1.10.9 and
-1.11.5.
+expansion, symbol escaping and the CLI. It runs green on Julia 1.6.7, 1.10.14
+and 1.12.7. CI also runs 1.13.4, which fails: Julia 1.13 compares `Expr` fields
+strictly, which reveals that the writer spells unsigned literals in decimal, so
+a `UInt8` comes back as an `Int`.
 
 ## Credits and license
 
