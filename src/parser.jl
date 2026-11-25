@@ -348,6 +348,9 @@ end
 
 Interpret `s` as a number using Clojure-ish literal forms (`42`, `-1.5`,
 `0xff`, `2r1010`, `3/5`, `12N`). Returns `nothing` when `s` is not a number.
+
+A based literal is unsigned, so a leading `-` on one arrives as the negation
+call built by [`negated_based_literal`](@ref) rather than here.
 """
 function parse_number(s::AbstractString)
     isempty(s) && return nothing
@@ -360,8 +363,10 @@ function parse_number(s::AbstractString)
         return decimal_int(neg ? s : body)
     end
     v = if occursin(RE_BASED, body)
+        # unsigned only: a signed based literal never reaches here, because
+        # `negated_based_literal` turns it into the negation call first
         b = body[2] in ('x', 'X') ? 16 : body[2] in ('b', 'B') ? 2 : 8
-        neg ? parse_int(body[3:end], b) : based_int(body[3:end], b)
+        based_int(body[3:end], b)
     elseif occursin(RE_RADIX, body)
         m = match(RE_RADIX, body)
         base = parse(Int, m[1])
