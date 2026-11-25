@@ -328,6 +328,8 @@ The original [Sexpr.jl](https://github.com/vshesh/Sexpr.jl) is by **Vishesh
 Gupta**. This port keeps its s-expression dialect and its `sjulia` interface and
 rewrites the implementation for Julia 1.6+.
 
-The upstream project ships no license file, so there are no upstream terms to
-carry over. The license of this port is not yet chosen; it will be stated here
-once it is.
+The upstream project ships no license file, so no upstream terms are carried
+over; the credit above is for the original work, not a license grant.
+
+This port is licensed under the [MIT License](LICENSE), copyright (c) 2026
+jawuku.
