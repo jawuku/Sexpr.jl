@@ -8,8 +8,7 @@ the special-form vocabulary and the `sjulia` command-line interface all come
 from it. This port rewrites the reader, printer and CLI for modern Julia and
 adds a number of previously missing forms.
 
-* Works on Julia 1.6 and later (CI runs 1.6.7, 1.10.14 and 1.12.7; 1.13.4 is
-  also run, and does not pass yet — see Limitations).
+* Works on Julia 1.6 and later (tested on 1.6.7, 1.10.14, 1.12.7 and 1.13.4).
 * No external dependencies — only the standard library.
 * Both directions: s-expression → Julia **and** Julia → s-expression.
 * Source positions in every parse error.
@@ -95,7 +94,7 @@ Errors are reported with line and column and give a nonzero exit code.
 | --- | --- |
 | `nil`, `true`, `false` | `nothing`, `true`, `false` |
 | `42`, `-7` | `Int` (widening to `Int128`/`BigInt`) |
-| `0xff`, `0b1010`, `0o17`, `16r1ef`, `12N` | hex, binary, octal, radix, `BigInt` |
+| `0xff`, `0x01ff`, `0b1010`, `0o17`, `16r1ef`, `12N` | hex, binary, octal, radix and `BigInt`; the width picks the type as in Julia (`0xff` is a `UInt8`, `0x01ff` a `UInt16`) |
 | `1.5`, `1e3`, `1.5e-3` | `Float64` |
 | `3/5` | `3//5` |
 | `"text"`, `"a\nb"` | strings with escapes and embedded newlines |
@@ -180,7 +179,9 @@ one form per AST head and the writer emits that same spelling back:
 
 The remaining low-level spellings are listed with the forms they modify:
 `(catch false body…)` under `try`, `(call (where …))` under `defn`, and
-`(fn (where [params] T…) body…)` under `fn`.
+`(fn (where [params] T…) body…)` under `fn`. A colon call whose arguments
+carry annotations keeps Julia's functional spelling, `(:)(::Any, ::Any)`, since
+`::Any:::Any` parses back as chained type annotations.
 
 ```clojure
 (toplevel (def a 1) (call g))                     ; a :toplevel node, cf. `a = 1; g()`
@@ -310,10 +311,6 @@ julia> format(transpile_expr("(defn empty? [xs] xs)"))
   not on arbitrary expressions.
 * Reader macros are limited to the forms listed above; `#(...)`, `@(...)` and
   other dispatch forms are rejected with an error.
-* Unsigned literals do not keep their type: the writer spells `0xff` as
-  `255`, which reads back as an `Int` rather than a `UInt8`. Julia 1.13 compares
-  `Expr` fields by type and so fails the round trip for them; earlier versions
-  compare only values and hide it.
 * Julia's printer (`Base.show_unquoted`) is used for output, so indentation is
   Julia's four-space style rather than Clojure's.
 
@@ -324,10 +321,8 @@ $ julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
 The test suite covers both directions, round-trips, evaluated semantics, macro
-expansion, symbol escaping and the CLI. It runs green on Julia 1.6.7, 1.10.14
-and 1.12.7. CI also runs 1.13.4, which fails: Julia 1.13 compares `Expr` fields
-strictly, which reveals that the writer spells unsigned literals in decimal, so
-a `UInt8` comes back as an `Int`.
+expansion, symbol escaping and the CLI. It runs green on Julia 1.6.7, 1.10.14,
+1.12.7 and 1.13.4.
 
 ## Credits and license
 

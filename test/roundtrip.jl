@@ -157,6 +157,8 @@ end
 # The snippets every round trip must handle.
 const SNIPPETS = [
     "x = 1",
+    "x = 0xff",
+    "x = 0x0000000000000001",
     "f(x) = 2x",
     "x += 1",
     "if c; x; else; y; end",

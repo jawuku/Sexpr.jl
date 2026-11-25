@@ -928,3 +928,31 @@ end
         main(["--nonsense"]) == 1
     end
 end
+
+@testset "literal types" begin
+    # a based literal takes its type from its width, as in Julia, so the type
+    # survives the round trip instead of decaying to Int
+    @test tr("(def a 0xff)") == Expr(:(=), :a, UInt8(0xff))
+    @test tr("(def a 0x01ff)") == Expr(:(=), :a, UInt16(0x01ff))
+    @test tr("(def a 0x0000000a)") == Expr(:(=), :a, UInt32(10))
+    @test tr("(def a 0x0000000000000001)") == Expr(:(=), :a, UInt64(1))
+    @test tr("(def a 0b1010)") == Expr(:(=), :a, UInt8(0b1010))
+    @test tr("(def a 0o17)") == Expr(:(=), :a, UInt8(0o17))
+    @test detranspile(Expr(:(=), :a, UInt16(0x01ff))) == "(def a 0x01ff)"
+    # the sign belongs to the literal: typemin(Int) is an Int, not an Int128
+    @test tr("(def a -9223372036854775808)") == Expr(:(=), :a, typemin(Int64))
+    @test tr("(def a 9223372036854775808)") == Expr(:(=), :a, Int128(1) << 63)
+    # BigInt keeps its own spelling; `Expr` equality cannot compare a mutable
+    # field on 1.13, so compare the rebuilt type and value instead
+    let back = tr(detranspile(Expr(:(=), :a, big(12))))
+        @test back.args[1] === :a
+        @test back.args[2] isa BigInt
+        @test back.args[2] == 12
+    end
+    # a colon call with annotated arguments keeps the spelling that re-parses
+    let ex = Expr(:call, Symbol(":"), Expr(:(::), :Any), Expr(:(::), :Any))
+        text = format(transpile_expr(detranspile(ex)))
+        @test text == "(:)(::Any, ::Any)"
+        @test transpile_expr(detranspile(text)) == ex
+    end
+end

@@ -249,6 +249,37 @@ catch e
     e isa OverflowError ? parse(BigInt, s; base=base) : rethrow(e)
 end
 
+# Julia types a based literal by its width: `0xff` is a `UInt8`, `0x1ff` a
+# `UInt16`, `0b111111111` a `UInt16`, and so on. The reader has to do the same,
+# or `UInt8(0xff)` comes back as an `Int`.
+const BASED_WIDTHS = ((8, UInt8), (16, UInt16), (32, UInt32), (64, UInt64),
+                      (128, UInt128))
+
+function based_int(digits::AbstractString, base::Integer)
+    n = ncodeunits(digits)
+    bits = base == 16 ? 4n : base == 2 ? n : 3n
+    for (width, T) in BASED_WIDTHS
+        bits <= width && return parse(T, digits; base=base)
+    end
+    return parse_int(digits, base)
+end
+
+# Julia widens a decimal literal that does not fit `Int` to `Int128`, and only
+# then to `BigInt`. Parsing the sign together keeps `-9223372036854775808` the
+# `Int` typemin instead of overflowing its magnitude to an `Int128`.
+function decimal_int(s::AbstractString)
+    for T in (Int, Int128)
+        v = try
+            parse(T, s)
+        catch e
+            e isa OverflowError || rethrow(e)
+            nothing
+        end
+        v === nothing || return v
+    end
+    return parse(BigInt, s)
+end
+
 # The second argument of the builtin literal macro is version-specific
 # (`:nothing` in 1.11); copy whatever the running parser produces.
 const WIDE_LITERAL_FLAGS =
@@ -291,16 +322,19 @@ function parse_number(s::AbstractString)
     occursin(RE_FLOAT, s) && return parse(Float64, s)
     neg = startswith(s, "-")
     body = neg ? s[2:end] : s
-    v = if occursin(RE_INT, body)
-        parse_int(body, 10)
-    elseif occursin(RE_BASED, body)
+    if occursin(RE_INT, body)
+        # sign included: a magnitude-only parse widens typemin(Int) to Int128
+        return decimal_int(neg ? s : body)
+    end
+    v = if occursin(RE_BASED, body)
         b = body[2] in ('x', 'X') ? 16 : body[2] in ('b', 'B') ? 2 : 8
-        parse_int(body[3:end], b)
+        neg ? parse_int(body[3:end], b) : based_int(body[3:end], b)
     elseif occursin(RE_RADIX, body)
         m = match(RE_RADIX, body)
         base = parse(Int, m[1])
         (2 <= base <= 62) || return nothing
-        parse_int(m[2], base)
+        neg || !(base in (2, 8, 16)) ? parse_int(m[2], base) :
+                                       based_int(m[2], base)
     elseif occursin(RE_RATIO, body)
         m = match(RE_RATIO, body)
         den = parse_int(m[2], 10)

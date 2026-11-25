@@ -151,7 +151,8 @@ is_wide_literal(x) = x isa Expr && literal_macro_text(x) !== nothing
 
 is_special(x) = is_interp(x) || is_directive(x) || is_quote_symbol(x) ||
                 is_dot_interp(x) || is_ref(x) || is_colon_symbol(x) ||
-                is_outer(x) || is_unary_minus(x) || is_wide_literal(x)
+                is_outer(x) || is_unary_minus(x) || is_wide_literal(x) ||
+                is_annotated_colon_call(x)
 
 format_interp(x) = x.head == :quote ? format_quoted(x.args[1]) :
                    string("\$(", format(x.args[1]), ")")
@@ -177,6 +178,16 @@ function format_dot_interp(x)
     field = x.args[2].value
     return string(format(x.args[1]), ".", format_interp(field))
 end
+
+# `(:)(::Any, ::Any)` is a call to the colon function, and Base prints it
+# infix as `::Any:::Any`, which re-parses as chained type annotations. A colon
+# call whose arguments carry annotations or keywords therefore keeps the
+# functional spelling, which parses back to the same call.
+is_annotated_colon_call(x) = x isa Expr && x.head == :call && !isempty(x.args) &&
+    x.args[1] === Symbol(":") &&
+    any(a -> a isa Expr && a.head in (:(::), :kw, :parameters), x.args[2:end])
+
+format_colon_call(x) = string("(:)(", join(map(format, x.args[2:end]), ", "), ")")
 
 is_assignment(x) = x isa Expr && x.head == :(=) && length(x.args) == 2
 is_range(x) = x isa Expr && x.head == :call && !isempty(x.args) &&
@@ -207,6 +218,7 @@ format_special(x) = is_directive(x) ? format_directive(x) :
     is_quote_symbol(x) ? format_quote_symbol(x) :
     is_dot_interp(x) ? format_dot_interp(x) :
     is_ref(x) ? format_ref(x) :
+    is_annotated_colon_call(x) ? format_colon_call(x) :
     is_colon_symbol(x) ? format_colon_symbol(x) :
     is_outer(x) ? format_outer(x) :
     is_unary_minus(x) ? format_unary_minus(x) : format_interp(x)

@@ -701,11 +701,20 @@ function string_string(s::AbstractString)
     String(take!(io))
 end
 
+const UNSIGNED_HEX_DIGITS = Dict(UInt8 => 2, UInt16 => 4, UInt32 => 8,
+                                 UInt64 => 16, UInt128 => 32)
+
 function number_string(x::Number)
     x isa Rational && return string(x.num, "/", x.den)
     if x isa AbstractFloat && !isfinite(x)
         return isnan(x) ? "NaN" : x > 0 ? "Inf" : "-Inf"
     end
+    # A based literal carries its width, so `0x0000000000000001` reads back as
+    # a `UInt64` where a plain `1` would read back as an `Int`.
+    x isa Unsigned && return string("0x",
+        lpad(string(x; base=16), UNSIGNED_HEX_DIGITS[typeof(x)], '0'))
+    # `12N` is the only spelling that reads back as a `BigInt`.
+    x isa BigInt && return string(x, "N")
     # `string` drops the `f0` of a Float32, which would read back as a Float64
     return x isa Float32 ? repr(x) : string(x)
 end
