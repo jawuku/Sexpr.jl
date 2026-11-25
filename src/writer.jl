@@ -505,7 +505,11 @@ function param_sexp(x)
     elseif x isa Expr && x.head == :...
         return SList(SSym("&"), param_sexp(x.args[1]))
     elseif x isa Expr && x.head == :tuple
-        return SVec(map(param_sexp, x.args))
+        # Inside the `[…]` of a destructuring pattern, `(& x)` parses as a
+        # call, so a splat element keeps the `(splat x)` spelling there.
+        return SVec(map(y -> y isa Expr && y.head == :... ?
+                         SList(SSym("splat"), param_sexp(y.args[1])) : param_sexp(y),
+                        x.args))
     elseif x isa Expr && x.head == :parameters
         # Inside `(parameters …)` a two-item list is a keyword default and
         # `(& x)` is a keyword splat, exactly as in a positional parameter list.

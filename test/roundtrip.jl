@@ -172,6 +172,7 @@ const SNIPPETS = [
     "struct P; x::Int; P() = new(1); end",
     "mutable struct M; x; end",
     "for (i, x) in enumerate(xs); println(i); end",
+    "for (i, rest...) in zip(xs); println(i); end",
     "[x for x in xs]",
     "Int[x for x in xs]",
     "(a = 1, b = 2)",
